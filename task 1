@@ -1,0 +1,59 @@
+import fitz
+import faiss
+import numpy as np
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+def get_text_from_pdf(file_path):
+    try:
+        pdf = fitz.open(file_path)
+        extracted_text = "".join(page.get_text() for page in pdf)
+        return extracted_text
+    except Exception as e:
+        print(f"Failed to extract text: {e}")
+        exit(1)
+
+def divide_text(content, max_size=500, overlap_size=50):
+    splitter = RecursiveCharacterTextSplitter(chunk_size=max_size, chunk_overlap=overlap_size)
+    return splitter.split_text(content)
+
+def create_faiss_index(chunks):
+    print("Creating FAISS index...")
+    vectors = np.array([[len(chunk)] for chunk in chunks], dtype="float32")
+    faiss_index = faiss.IndexFlatL2(1)
+    faiss_index.add(vectors)
+    print("FAISS index created successfully!")
+    return faiss_index, chunks
+
+def find_in_index(query, index, chunks):
+    matches = [chunk for chunk in chunks if query.lower() in chunk.lower()]
+    if matches:
+        return f"Matches found:\n{chr(10).join(matches)}"
+    return "No relevant matches found."
+
+def main():
+    pdf_path = "C:/Users/abhinaya/OneDrive/Documents/abhi.pdf"
+    print("Reading PDF content...")
+    text = get_text_from_pdf(pdf_path)
+
+    if not text.strip():
+        print("No content found in PDF. Please check the file.")
+        return
+
+    print("Dividing content into chunks...")
+    chunks = divide_text(text)
+
+    index, stored_chunks = create_faiss_index(chunks)
+
+    print("Ready to search the PDF content.")
+    while True:
+        user_input = input("Ask a question (or type 'exit' to quit): ")
+        if user_input.lower() == "exit":
+            print("Exiting program. Goodbye!")
+            break
+        response = find_in_index(user_input, index, stored_chunks)
+        print("\nSearch Result:")
+        print(response)
+        print("-" * 50)
+
+if _name_ == "_main_":
+    main()
